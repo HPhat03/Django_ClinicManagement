@@ -37,7 +37,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'ClinicApp.apps.ClinicappConfig'
+    'ClinicApp.apps.ClinicappConfig',
+    'nested_inline',
+    'admin_reorder',
+    'rest_framework'
 ]
 
 MIDDLEWARE = [
@@ -48,6 +51,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'ClinicApp.admin.Reorder',
 ]
 
 ROOT_URLCONF = 'ClinicProject.urls'
@@ -127,3 +131,40 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+ #OTHER SETTING
+ADMIN_REORDER = (
+    'sites',
+    {
+        'app': 'ClinicApp',
+        'label': 'Overview',
+        'models': (
+            'ClinicApp.Department',
+        )
+    },
+    {
+        'app': 'ClinicApp',
+        'label': 'Human Resource',
+        'models': (
+            'ClinicApp.User',
+            'ClinicApp.Employee',
+            'ClinicApp.Doctor',
+            'ClinicApp.Nurse',
+        )
+    },
+    {
+        'app': 'ClinicApp',
+        'label': 'Medicines',
+        'models': (
+            'ClinicApp.Medicine',
+            'ClinicApp.Vendor',
+            'ClinicApp.MedicinePrice',
+        )
+    },
+    {
+        'app': 'ClinicApp',
+        'label': 'Schedule',
+        'models': (
+            'ClinicApp.Schedule',
+        )
+    },
+)
