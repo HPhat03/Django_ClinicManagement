@@ -40,7 +40,12 @@ INSTALLED_APPS = [
     'ClinicApp.apps.ClinicappConfig',
     'nested_inline',
     'admin_reorder',
-    'rest_framework'
+    'rest_framework',
+    'oauth2_provider',
+    'drf_yasg',
+    'ckeditor',
+    'ckeditor_uploader'
+
 ]
 
 MIDDLEWARE = [
@@ -112,14 +117,14 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
-
+DATETIME_FORMAT = '%d-%m-%Y %H:%M'
 LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
-
-USE_TZ = True
+L10N = False
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)
@@ -132,6 +137,25 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
  #OTHER SETTING
+
+CKEDITOR_UPLOAD_PATH = "images/CKEDITOR/"
+CLOUDINARY = {
+  'cloud_name': 'dzm6ikgbo',
+  'api_key': '539987548171822',
+  'api_secret': 'FfePKpjetbSwFufRAnuWoDMeaIA',
+}
+
+REST_FRAMEWORK = {
+    'DEFAULT_PAGINATION_CLASS':
+        'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 2,
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
+    )
+}
 ADMIN_REORDER = (
     'sites',
     {
@@ -168,3 +192,14 @@ ADMIN_REORDER = (
         )
     },
 )
+
+oauth2_secret="x08F9yN2u7B3IjPuAfWkMLgCrhKkun7VUCMFwqdNaHkxuD96d6J6fV2s7v25aMTa3234Uh4BWJm0Buj69AVXKDpKuwYM47kzMyhSASyUCXZoikLwhJcoHSY0BdpuK4Ij"
+
+#GMAIL
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST_USER = 'mhphat.c17nvt@gmail.com'
+EMAIL_HOST_PASSWORD = "cngx jeiy lhnk qvnh"
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'default from email'

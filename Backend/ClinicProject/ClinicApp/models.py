@@ -1,11 +1,15 @@
 import datetime
 from datetime import date
 
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django_enumfield import enum
 
 
+from cloudinary.models import CloudinaryField
+
+from ckeditor.fields import RichTextField
 # Create your models here.
 
 # enum
@@ -43,12 +47,16 @@ class User(AbstractUser):
     birthdate = models.DateField(null=False, default=date(2024, 1, 1))
     address = models.CharField(max_length=100, null=False, default='ABC')
     gender = models.BooleanField(null=False, default=True)
-    avatar = models.ImageField(upload_to='users/%Y/%m', null=True)
+    avatar = CloudinaryField('image', default = 'https://res.cloudinary.com/dzm6ikgbo/image/upload/v1704261125/plxne6rgmefyzkx4mdzz.png')
     role = enum.EnumField(UserRole, default=UserRole.ADMIN)
 
     @property
     def name(self):
         return self.last_name + ' ' + self.first_name
+
+    @property
+    def image_url(self):
+        return self.avatar.url
 
 
 class Patient(models.Model):
@@ -61,7 +69,7 @@ class Employee(models.Model):
     user_info = models.OneToOneField(User, related_name="employee",
                                      on_delete=models.CASCADE,
                                      null=False, primary_key=True)
-    diploma = models.TextField()
+    diploma = RichTextField()
     def __str__(self):
         role = self.user_info.role
         S = ''
@@ -77,7 +85,7 @@ class Doctor(models.Model):
     employee_info = models.OneToOneField(Employee, related_name="doctor_info",
                                          on_delete=models.CASCADE,
                                          null=False, primary_key=True)
-    departments = models.ManyToManyField('Department', related_name="doctors")
+    departments = models.ForeignKey('Department', related_name="doctors",null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.employee_info.user_info.name
@@ -109,10 +117,12 @@ class Department(BaseModel):
 
 
 class Appointment(BaseModel):
-    ExpectedDate = models.DateTimeField(null=False)
+    class Meta:
+        unique_together = ('patient', 'ExpectedDate')
+    ExpectedDate = models.DateTimeField(null=False, default=datetime.datetime.now())
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, related_name="appointments", null=True)
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="appointments", null=False)
-
+    confirmed = models.BooleanField(null=False, default=False)
 
 class Confirmation(models.Model):
     appointment = models.OneToOneField(Appointment, on_delete=models.CASCADE, related_name="confirmation", null=False,
@@ -138,7 +148,7 @@ class Receipt(models.Model):
     nurse = models.ForeignKey(Nurse,related_name='receipt_confirmed', on_delete=models.SET_NULL, null=True)
     record = models.OneToOneField(HealthRecord, on_delete=models.CASCADE, related_name='receipt')
     total = models.IntegerField()
-    created_date = models.DateTimeField(default=datetime.datetime.now())
+    created_date = models.DateTimeField(auto_now_add=True)
     paid = models.BooleanField(null=False, default=False)
 
 class ReceiptDetail(models.Model):
@@ -167,9 +177,12 @@ class Instruction(BaseModel):
 class Medicine(BaseModel):
     name = models.CharField(max_length=100, null=False)
     vendor = models.ForeignKey('Vendor', on_delete=models.SET_NULL, related_name="medicines", null=True)
-    content = models.TextField()
-    image = models.ImageField(upload_to='medicines/%Y/%m')
+    content = RichTextField()
+    image = CloudinaryField('image')
 
+    @property
+    def image_url(self):
+        return self.image.url
     def __str__(self):
         return self.name
 

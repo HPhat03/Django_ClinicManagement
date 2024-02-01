@@ -1,22 +1,24 @@
-import hashlib
-
 from admin_reorder.middleware import ModelAdminReorder
+from django import forms
+from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.conf import settings
 from django.contrib import admin
+from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.safestring import mark_safe
 
 from .models import Doctor, Nurse, Schedule, Medicine, Vendor, MedicinePrice, Department, Employee, User, UserRole, \
     Patient
 from nested_inline.admin import NestedStackedInline, NestedModelAdmin
+
+from django.conf import settings
 # Register your models here.
 
+#ADMIN PAGE SETUP
 class myAdminPage(admin.AdminSite):
     site_header = "PB CLINIC ADMIN"
 
-class DepartmentAdmin(admin.ModelAdmin):
-    pass
-
+#INLINE ADMIN CLASS
 class PriceInlineAdmin(NestedStackedInline):
     model = MedicinePrice
     fk_name = 'medicine'
@@ -26,18 +28,29 @@ class MedicineInlineAdmin(NestedStackedInline):
     model = Medicine
     fk_name = 'vendor'
     extra = 1
-    # inlines = [PriceInlineAdmin,]
+    inlines = [PriceInlineAdmin,]
     readonly_fields = ['image_of_medicine']
 
     def image_of_medicine(self, obj):
         return mark_safe(
-            f"<img src='/static/{obj.image.name}' width=250/>"
+            f"<img src='{obj.image.url}' width=250/>"
         )
+
+#CKEDITOR FORM
+class MedicineForm(forms.ModelForm):
+    content = forms.CharField(widget=CKEditorUploadingWidget)
+    class Meta:
+        model = Medicine
+        fields = '__all__'
+#ADMIN CLASS
+class DepartmentAdmin(admin.ModelAdmin):
+    pass
 class VendorAdmin(NestedModelAdmin):
     model = Vendor
     inlines = [MedicineInlineAdmin]
 
 class MedicineAdmin(admin.ModelAdmin):
+    form = MedicineForm
     list_display = ['id', 'name','vendor', 'active']
     list_filter = ['vendor', 'active']
     inlines = [PriceInlineAdmin]
@@ -45,17 +58,17 @@ class MedicineAdmin(admin.ModelAdmin):
 
     def image_of_medicine(self, obj):
         return mark_safe(
-            f"<img src='/static/{obj.image.name}' width=250/>"
+            f"<img src='{obj.image.url}' width=250/>"
         )
 class UserAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'role', 'is_active']
     readonly_fields = ['image']
     def image(self, obj):
         return mark_safe(
-            f"<img src='/static/{obj.avatar.name}' width=150/>"
+            f"<img src='{obj.avatar.url}' width=150/>"
         )
     def save_model(self, request, obj, form, change):
-        obj.password = hashlib.md5(obj.password.strip().encode('utf-8')).hexdigest()
+        obj.password = make_password(obj.password.strip())
         super().save_model(request, obj, form, change)
         if obj.role == UserRole.BENH_NHAN:
             temp = Patient(user_info=obj)
@@ -77,10 +90,6 @@ class HRAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-# class UserInlineAdmin(admin.StackedInline):
-#     model = Employee
-#     fk_name = 'user_info'
-#
 class EmployeeAdmin(admin.ModelAdmin):
     def get_model_perms(self, request):
         return {}
