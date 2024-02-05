@@ -47,7 +47,7 @@ class User(AbstractUser):
     birthdate = models.DateField(null=False, default=date(2024, 1, 1))
     address = models.CharField(max_length=100, null=False, default='ABC')
     gender = models.BooleanField(null=False, default=True)
-    avatar = CloudinaryField('image', default = 'https://res.cloudinary.com/dzm6ikgbo/image/upload/v1704261125/plxne6rgmefyzkx4mdzz.png')
+    avatar = CloudinaryField('image')
     role = enum.EnumField(UserRole, default=UserRole.ADMIN)
 
     @property
@@ -139,7 +139,7 @@ class HealthRecord(BaseModel):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="health_records", null=False)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name="health_records", null=False)
     symstoms = models.TextField(null=False)
-    paid = models.BooleanField(null=False, default=False)
+    locked = models.BooleanField(null=False, default=False)
     medicines = models.ManyToManyField('Medicine', related_name='records', through='MedicineDetails')
     services = models.ManyToManyField(Service, related_name='records')
 
@@ -157,18 +157,19 @@ class ReceiptDetail(models.Model):
     name = models.CharField(max_length=100)
     price = models.IntegerField(default=0)
 class MedicineDetails(BaseModel):
+    class Meta:
+        unique_together = ("health_record", "medicine")
     health_record = models.ForeignKey(HealthRecord, on_delete=models.CASCADE,
-                                      null=False)
+                                      null=False, related_name='medicines_detail')
     medicine = models.ForeignKey('Medicine', on_delete=models.CASCADE,
                                  null=False)
     amount = models.FloatField(null=False)
     unit = enum.EnumField(Unit, default=Unit.TABLET)
     total = models.IntegerField()
+    instructions = models.ManyToManyField('Instruction', related_name="medicine")
 
 
 class Instruction(BaseModel):
-    medicine = models.ForeignKey(MedicineDetails, on_delete=models.CASCADE,
-                                 null=False)
     amount = models.FloatField(null=False)
     unit = enum.EnumField(Unit, default=Unit.TABLET)
     period = enum.EnumField(Period, default=Period.MORN)

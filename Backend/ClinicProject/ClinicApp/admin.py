@@ -8,7 +8,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.utils.safestring import mark_safe
 
 from .models import Doctor, Nurse, Schedule, Medicine, Vendor, MedicinePrice, Department, Employee, User, UserRole, \
-    Patient
+    Patient, Service
 from nested_inline.admin import NestedStackedInline, NestedModelAdmin
 
 from django.conf import settings
@@ -103,6 +103,8 @@ admin_site.register(Medicine, MedicineAdmin)
 admin_site.register(Department, DepartmentAdmin)
 admin_site.register(User, UserAdmin)
 admin_site.register(Employee, EmployeeAdmin)
+#new
+admin_site.register(Service)
 
 
 #firmware

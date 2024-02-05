@@ -146,12 +146,9 @@ CLOUDINARY = {
 }
 
 REST_FRAMEWORK = {
-    'DEFAULT_PAGINATION_CLASS':
-        'rest_framework.pagination.PageNumberPagination',
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 2,
-    'DEFAULT_PARSER_CLASSES': [
-        'rest_framework.parsers.JSONParser',
-    ],
+    'DEFAULT_PARSER_CLASSES': ['rest_framework.parsers.JSONParser',],
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'oauth2_provider.contrib.rest_framework.OAuth2Authentication',
     )
@@ -194,7 +191,7 @@ ADMIN_REORDER = (
 )
 
 oauth2_secret="x08F9yN2u7B3IjPuAfWkMLgCrhKkun7VUCMFwqdNaHkxuD96d6J6fV2s7v25aMTa3234Uh4BWJm0Buj69AVXKDpKuwYM47kzMyhSASyUCXZoikLwhJcoHSY0BdpuK4Ij"
-
+OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore'}
 #GMAIL
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'

@@ -2,9 +2,9 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from .models import Medicine, MedicinePrice, Vendor, User, Doctor, Department, Employee, UserRole, Patient, Appointment, \
-    Confirmation
+    Confirmation, HealthRecord, Service, MedicineDetails, Instruction
 
-
+#MEDICINE
 class MedicinePriceSerializer(ModelSerializer):
     class Meta:
         model = MedicinePrice
@@ -55,6 +55,7 @@ class UserListSerializer(ModelSerializer):
         fields = ['id', 'name', 'image_url']
 class EmployeeSerializer(ModelSerializer):
     user_info = UserSerializer()
+
     class Meta:
         model = Employee
         fields = ['user_info', 'diploma']
@@ -72,6 +73,7 @@ class DepartmentSerializer(ModelSerializer):
 class DoctorSerializer(ModelSerializer):
     departments = DepartmentSerializer()
     employee_info = EmployeeSerializer()
+
     class Meta:
         model = Doctor
         fields = ['employee_info', 'departments']
@@ -82,13 +84,24 @@ class DoctorListSerializer(ModelSerializer):
     class Meta:
         model = Doctor
         fields = ['employee_info', 'departments']
+class NurseSerializer(ModelSerializer):
+    employee_info = EmployeeSerializer()
+    class Meta:
+        model = Doctor
+        fields = ['employee_info']
+class PatientSerializer(ModelSerializer):
+    user_info = UserSerializer()
+    class Meta:
+        model = Patient
+        fields = ['user_info']
 
-#APPOINTMENT
+
 class PatientListSerializer(ModelSerializer):
     user_info = UserListSerializer()
     class Meta:
         model = Patient
         fields = ['user_info']
+#APPOINTMENT
 class ConfirmationSerializer(ModelSerializer):
     class Meta:
         model = Confirmation
@@ -105,9 +118,47 @@ class AppointmentSerializer(ModelSerializer):
 
 class AppointmentListSerializer(ModelSerializer):
     ExpectedDate=serializers.DateTimeField(format="%d-%m-%Y %H:%M")
-    # department= DepartmentSerializer()
-    # patient = PatientListSerializer()
+    department= DepartmentSerializer()
+    patient = PatientListSerializer()
 
     class Meta:
         model = Appointment
         fields = ['id', 'department', 'patient', 'ExpectedDate', "created_date", "confirmed"]
+
+#HealthRecord
+class ServiceSerializer(ModelSerializer):
+    class Meta:
+        model = Service
+        fields = "__all__"
+
+class InstructionSerializer(ModelSerializer):
+    class Meta:
+        model = Instruction
+        fields = ['amount', 'unit', 'period']
+
+class MedicineDetailSerializer(ModelSerializer):
+    instructions = InstructionSerializer(many=True)
+    medicine = MedicineListSerializer()
+    class Meta:
+        model = MedicineDetails
+        fields = ["medicine", 'amount', 'unit', 'total', 'instructions']
+
+class HealthRecordSerializer(ModelSerializer):
+    services = ServiceSerializer(many=True)
+    patient = PatientListSerializer()
+    doctor = DoctorListSerializer()
+    medicines_detail = MedicineDetailSerializer(many=True)
+    class Meta:
+        model = HealthRecord
+        fields = ['id', 'patient', 'doctor', 'symstoms', 'medicines_detail', 'services', 'active']
+
+class HealthRecordListSerializer(ModelSerializer):
+    services = ServiceSerializer(many=True)
+    patient = PatientListSerializer()
+    doctor = DoctorListSerializer()
+    created_date=serializers.DateTimeField(format="%d-%m-%Y %H:%M")
+    class Meta:
+        model = HealthRecord
+        fields = ['id', 'patient', 'doctor', 'created_date', 'paid']
+
+#other
