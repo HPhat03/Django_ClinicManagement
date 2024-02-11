@@ -190,7 +190,7 @@ ADMIN_REORDER = (
     },
 )
 
-oauth2_secret="x08F9yN2u7B3IjPuAfWkMLgCrhKkun7VUCMFwqdNaHkxuD96d6J6fV2s7v25aMTa3234Uh4BWJm0Buj69AVXKDpKuwYM47kzMyhSASyUCXZoikLwhJcoHSY0BdpuK4Ij"
+oauth2_secret="rqWWMDFzefEOrYSAdh3eL1WgmzZVSAr6OnQrsrPt8FhSCg5OOa1p3Nr4ezVehesaeKX2FAr0jwPwQ4sdl36mYCftSga3OCGyL1AkS0RIMxkjB1YehoAgQLlJZEauBnzH"
 OAUTH2_PROVIDER = {'OAUTH2_BACKEND_CLASS': 'oauth2_provider.oauth2_backends.JSONOAuthLibCore'}
 #GMAIL
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

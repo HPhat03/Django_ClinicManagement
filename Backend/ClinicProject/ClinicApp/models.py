@@ -47,7 +47,7 @@ class User(AbstractUser):
     birthdate = models.DateField(null=False, default=date(2024, 1, 1))
     address = models.CharField(max_length=100, null=False, default='ABC')
     gender = models.BooleanField(null=False, default=True)
-    avatar = CloudinaryField('image')
+    avatar = CloudinaryField('image', default= None, null=True)
     role = enum.EnumField(UserRole, default=UserRole.ADMIN)
 
     @property
@@ -139,16 +139,16 @@ class HealthRecord(BaseModel):
     patient = models.ForeignKey(Patient, on_delete=models.CASCADE, related_name="health_records", null=False)
     doctor = models.ForeignKey(Doctor, on_delete=models.CASCADE, related_name="health_records", null=False)
     symstoms = models.TextField(null=False)
+    overview = models.TextField(null=True, default=None)
     locked = models.BooleanField(null=False, default=False)
     medicines = models.ManyToManyField('Medicine', related_name='records', through='MedicineDetails')
     services = models.ManyToManyField(Service, related_name='records')
 
 class Receipt(models.Model):
-    id = models.AutoField(primary_key=True)
+    record = models.OneToOneField(HealthRecord, on_delete=models.CASCADE, related_name='receipt', primary_key=True)
     nurse = models.ForeignKey(Nurse,related_name='receipt_confirmed', on_delete=models.SET_NULL, null=True)
-    record = models.OneToOneField(HealthRecord, on_delete=models.CASCADE, related_name='receipt')
     total = models.IntegerField()
-    created_date = models.DateTimeField(auto_now_add=True)
+    created_date = models.DateField(default=date.today(),)
     paid = models.BooleanField(null=False, default=False)
 
 class ReceiptDetail(models.Model):

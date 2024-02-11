@@ -2,8 +2,29 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from .models import Medicine, MedicinePrice, Vendor, User, Doctor, Department, Employee, UserRole, Patient, Appointment, \
-    Confirmation, HealthRecord, Service, MedicineDetails, Instruction
+    Confirmation, HealthRecord, Service, MedicineDetails, Instruction, ReceiptDetail, Receipt
 
+
+#Dynamid
+class DynamicFieldsModelSerializer(serializers.ModelSerializer):
+    """
+    A ModelSerializer that takes an additional `fields` argument that
+    controls which fields should be displayed.
+    """
+
+    def __init__(self, *args, **kwargs):
+        # Don't pass the 'fields' arg up to the superclass
+        fields = kwargs.pop('fields', None)
+
+        # Instantiate the superclass normally
+        super().__init__(*args, **kwargs)
+
+        if fields is not None:
+            # Drop any fields that are not specified in the `fields` argument.
+            allowed = set(fields)
+            existing = set(self.fields)
+            for field_name in existing - allowed:
+                self.fields.pop(field_name)
 #MEDICINE
 class MedicinePriceSerializer(ModelSerializer):
     class Meta:
@@ -35,7 +56,7 @@ class MedicineListSerializer(ModelSerializer):
 class UserSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email' , 'birthdate', 'gender', 'address', 'avatar', 'username', 'password', 'role']
+        fields = ['id', 'first_name', 'last_name', 'email' , 'birthdate', 'gender', 'address', 'image_url', 'username', 'password', 'role']
 
     def create(self, validated_data):
         u = User(**validated_data)
@@ -53,25 +74,25 @@ class UserListSerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'name', 'image_url']
-class EmployeeSerializer(ModelSerializer):
+class EmployeeSerializer(DynamicFieldsModelSerializer):
     user_info = UserSerializer()
 
     class Meta:
         model = Employee
-        fields = ['user_info', 'diploma']
+        fields = "__all__"
 class EmployeeListSerializer(ModelSerializer):
     user_info = UserListSerializer()
     class Meta:
         model = Employee
         fields = ['user_info']
 
-class DepartmentSerializer(ModelSerializer):
+class DepartmentSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Department
-        fields = ['id', 'name']
+        fields = '__all__'
 
-class DoctorSerializer(ModelSerializer):
-    departments = DepartmentSerializer()
+class DoctorSerializer(DynamicFieldsModelSerializer):
+    departments = DepartmentSerializer(fields=['id', 'name'])
     employee_info = EmployeeSerializer()
 
     class Meta:
@@ -80,20 +101,22 @@ class DoctorSerializer(ModelSerializer):
 
 class DoctorListSerializer(ModelSerializer):
     employee_info = EmployeeListSerializer()
-    departments = DepartmentSerializer()
+    departments = DepartmentSerializer(fields=['id', 'name'])
     class Meta:
         model = Doctor
         fields = ['employee_info', 'departments']
-class NurseSerializer(ModelSerializer):
+
+
+class NurseSerializer(DynamicFieldsModelSerializer):
     employee_info = EmployeeSerializer()
     class Meta:
         model = Doctor
         fields = ['employee_info']
-class PatientSerializer(ModelSerializer):
+class PatientSerializer(DynamicFieldsModelSerializer):
     user_info = UserSerializer()
     class Meta:
         model = Patient
-        fields = ['user_info']
+        fields = "__all__"
 
 
 class PatientListSerializer(ModelSerializer):
@@ -101,6 +124,13 @@ class PatientListSerializer(ModelSerializer):
     class Meta:
         model = Patient
         fields = ['user_info']
+
+class NonDetailEmployeeSerializer(DynamicFieldsModelSerializer):
+    doctor_info = DoctorSerializer(fields=['departments'])
+    nurse_info = NurseSerializer(fields=[])
+    class Meta:
+        model = Employee
+        fields = "__all__"
 #APPOINTMENT
 class ConfirmationSerializer(ModelSerializer):
     class Meta:
@@ -153,12 +183,21 @@ class HealthRecordSerializer(ModelSerializer):
         fields = ['id', 'patient', 'doctor', 'symstoms', 'medicines_detail', 'services', 'active']
 
 class HealthRecordListSerializer(ModelSerializer):
-    services = ServiceSerializer(many=True)
     patient = PatientListSerializer()
     doctor = DoctorListSerializer()
-    created_date=serializers.DateTimeField(format="%d-%m-%Y %H:%M")
+
     class Meta:
         model = HealthRecord
-        fields = ['id', 'patient', 'doctor', 'created_date', 'paid']
+        fields = ['id', 'patient', 'doctor', 'created_date']
 
-#other
+#Receipt
+class ReceiptDetailSerializer(ModelSerializer):
+    class Meta:
+        model = ReceiptDetail
+        fields = ['name', 'price']
+class ReceiptSerializer(DynamicFieldsModelSerializer):
+    record = HealthRecordListSerializer()
+    detail = ReceiptDetailSerializer(many=True)
+    class Meta:
+        model = Receipt
+        fields = '__all__'
