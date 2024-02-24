@@ -2,8 +2,8 @@
 from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
 from .models import Medicine, MedicinePrice, Vendor, User, Doctor, Department, Employee, UserRole, Patient, Appointment, \
-    Confirmation, HealthRecord, Service, MedicineDetails, Instruction, ReceiptDetail, Receipt
-
+    Confirmation, HealthRecord, Service, MedicineDetails, Instruction, ReceiptDetail, Receipt, Nurse
+from dateutil import parser
 
 #Dynamid
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -56,16 +56,25 @@ class MedicineListSerializer(ModelSerializer):
 class UserSerializer(ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email' , 'birthdate', 'gender', 'address', 'image_url', 'username', 'password', 'role']
+        fields = ['id', 'first_name', 'last_name', 'email' , 'birthdate', 'gender', 'address', 'avatar', 'image_url', 'username', 'password', 'role']
 
     def create(self, validated_data):
         u = User(**validated_data)
         u.set_password(validated_data['password'])
-        u.role = UserRole.BENH_NHAN
+        u.role = UserRole.BENH_NHAN if 'role' not in validated_data.keys() else validated_data['role']
         u.save()
-
-        p = Patient(user_info=u)
-        p.save()
+        if u.role == UserRole.BENH_NHAN:
+            p = Patient(user_info=u)
+            p.save()
+        else:
+            e = Employee(user_info=u)
+            e.save()
+            if u.role == UserRole.BAC_SI:
+                d = Doctor(employee_info=e)
+                d.save()
+            else:
+                n = Nurse(employee_info=e)
+                n.save()
 
         return u
 
@@ -146,6 +155,12 @@ class AppointmentSerializer(ModelSerializer):
         model = Appointment
         fields ='__all__'
 
+    def to_internal_value(self, value):
+
+        value['ExpectedDate'] = parser.parse(value['ExpectedDate'])
+        print(value)
+        return super().to_internal_value(value)
+
 class AppointmentListSerializer(ModelSerializer):
     ExpectedDate=serializers.DateTimeField(format="%d-%m-%Y %H:%M")
     department= DepartmentSerializer()
@@ -159,7 +174,7 @@ class AppointmentListSerializer(ModelSerializer):
 class ServiceSerializer(ModelSerializer):
     class Meta:
         model = Service
-        fields = "__all__"
+        fields = ['id', 'name', 'price']
 
 class InstructionSerializer(ModelSerializer):
     class Meta:
@@ -180,7 +195,7 @@ class HealthRecordSerializer(ModelSerializer):
     medicines_detail = MedicineDetailSerializer(many=True)
     class Meta:
         model = HealthRecord
-        fields = ['id', 'patient', 'doctor', 'symstoms', 'medicines_detail', 'services', 'active']
+        fields = ['id', 'patient', 'doctor', 'symstoms','overview', 'medicines_detail', 'services', 'active']
 
 class HealthRecordListSerializer(ModelSerializer):
     patient = PatientListSerializer()

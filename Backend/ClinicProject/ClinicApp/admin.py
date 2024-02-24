@@ -2,9 +2,10 @@ from admin_reorder.middleware import ModelAdminReorder
 from django import forms
 from ckeditor_uploader.widgets import CKEditorUploadingWidget
 from django.conf import settings
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth.hashers import make_password
 from django.core.exceptions import ImproperlyConfigured
+from django.db.models import Q
 from django.utils.safestring import mark_safe
 
 from .models import Doctor, Nurse, Schedule, Medicine, Vendor, MedicinePrice, Department, Employee, User, UserRole, \
@@ -54,6 +55,7 @@ class MedicineAdmin(admin.ModelAdmin):
     list_display = ['id', 'name','vendor', 'active']
     list_filter = ['vendor', 'active']
     inlines = [PriceInlineAdmin]
+    search_fields = ['name']
     readonly_fields = ['image_of_medicine']
 
     def image_of_medicine(self, obj):
@@ -61,12 +63,21 @@ class MedicineAdmin(admin.ModelAdmin):
             f"<img src='{obj.image.url}' width=250/>"
         )
 class UserAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'role', 'is_active']
-    readonly_fields = ['image']
+    list_display = ['id', 'name','Gender', 'role', 'is_active']
+    list_filter = ('role',)
+    search_fields = ('last_name', 'first_name')
+    readonly_fields = ['Gender','image', 'password', 'username']
+    exclude = ['groups', 'user_permissions', 'gender', 'is_staff', 'is_superuser']
     def image(self, obj):
         return mark_safe(
             f"<img src='{obj.avatar.url}' width=150/>"
         )
+    def Gender(self, obj):
+        return "Nam" if obj.gender else "Nữ"
+
+    def get_queryset(self, request):
+        q = super().get_queryset(request)
+        return q.filter(Q(role = UserRole.BAC_SI) | Q(role=UserRole.Y_TA)).order_by('role')
     def save_model(self, request, obj, form, change):
         obj.password = make_password(obj.password.strip())
         super().save_model(request, obj, form, change)
@@ -93,11 +104,39 @@ class HRAdmin(admin.ModelAdmin):
 class EmployeeAdmin(admin.ModelAdmin):
     def get_model_perms(self, request):
         return {}
+class EmployeeInlineAdmin(admin.StackedInline):
+    model = Schedule.employees.through
+    extra = 1
+
+
+class ScheduleAdmin(admin.ModelAdmin):
+    class Media:
+        js = ('/static/js/script.js',)
+
+    list_display = ['id', 'department', 'ScheduleDate', 'created_date', 'active']
+    list_filter = ('department',)
+    inlines = [EmployeeInlineAdmin, ]
+    exclude = ['employees']
+
+    def get_queryset(self, request):
+        q = super().get_queryset(request)
+        return q.order_by('-ScheduleDate')
+
+    def save_formset(self, request, form, formset, change):
+        formset.save()
+        for fs in formset:
+            t = fs.instance.employee
+            if t.user_info.role == UserRole.BAC_SI :
+                if form.instance.department != t.doctor_info.departments:
+                    fs.instance.delete()
+                    msg = f'Không thể xếp bác sĩ khoa khác vào {form.instance.department}'
+                    messages.add_message(request, level=messages.ERROR, message=msg)
 
 admin_site = myAdminPage(name="admin_site")
+# admin_site = admin.site
 admin_site.register(Doctor, HRAdmin)
 admin_site.register(Nurse, HRAdmin)
-admin_site.register(Schedule)
+admin_site.register(Schedule, ScheduleAdmin)
 admin_site.register(Vendor, VendorAdmin)
 admin_site.register(Medicine, MedicineAdmin)
 admin_site.register(Department, DepartmentAdmin)

@@ -43,4 +43,7 @@ urlpatterns = [
 
     #CKEDITOR
     re_path(r'^ckeditor/', include('ckeditor_uploader.urls')),
+
+    #SOCIAL_ACCOUNT
+re_path(r'^auth/', include('drf_social_oauth2.urls', namespace='drf'))
 ]

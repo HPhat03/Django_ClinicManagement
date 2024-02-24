@@ -2,20 +2,20 @@ import datetime
 
 from django.conf import settings
 from django.db.models import Sum
-from django.http import HttpResponse, request
+from django.http import HttpResponse
 from rest_framework import status, permissions
 from rest_framework.decorators import action
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser,FileUploadParser
 from rest_framework.response import Response
-from rest_framework.viewsets import ModelViewSet, ViewSet, generics
+from rest_framework.viewsets import ViewSet, generics
 
-from .models import Medicine, User, Employee, Doctor, UserRole, Appointment, Confirmation, HealthRecord, Service, \
-    MedicineDetails, Instruction, Patient, Department, Receipt, ReceiptDetail
+from .models import Medicine, User, Doctor, UserRole, Appointment, Confirmation, HealthRecord, Service, \
+    MedicineDetails, Instruction, Patient, Department, Receipt, ReceiptDetail, Unit, Period
 from .serializers import MedicineSerializer, UserSerializer, DoctorSerializer, \
     MedicineListSerializer, DoctorListSerializer, AppointmentSerializer, AppointmentListSerializer, \
-    HealthRecordSerializer, PatientListSerializer, PatientSerializer, InstructionSerializer, NurseSerializer, \
-    EmployeeSerializer, DepartmentSerializer, NonDetailEmployeeSerializer, ReceiptSerializer
-from .pagination import MedicinePagnigation
+    HealthRecordSerializer, PatientListSerializer, PatientSerializer, InstructionSerializer,\
+    DepartmentSerializer, NonDetailEmployeeSerializer, ReceiptSerializer, ServiceSerializer, HealthRecordListSerializer
+from .pagination import MedicinePagnigation, AppointmentPagnigation
 
 from django.core.mail import send_mail
 
@@ -51,6 +51,20 @@ class MedicineViewSet(ViewSet, generics.RetrieveAPIView, generics.ListAPIView):
             s = MedicineSerializer
         return s
 
+    @action(methods=['get'], detail=True)
+    def unit(self, request, pk=None):
+        p = Medicine.objects.get(pk=pk).prices.all()
+        units = []
+        for i in p:
+            temp = {
+                    "value": i.unit.name,
+                    "key": i.unit.value
+                }
+            print(temp)
+            units.append(temp)
+        return Response(units, status=status.HTTP_200_OK)
+
+
 
 class DoctorViewSet(ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
     queryset = Doctor.objects.all()
@@ -71,12 +85,23 @@ class UserViewSet(ViewSet, generics.CreateAPIView):
         request = super().initialize_request(request, *args, **kwargs)
         print(request.method)
         if request.method in ['POST']:
-            request.parsers = [MultiPartParser(), ]
+            request.parsers = [MultiPartParser(), FileUploadParser()]
         else:
             request.parsers = []
 
         self.action = self.action_map.get(request.method.lower())
         return request
+
+    def create(self, request, *args, **kwargs):
+        msg= failed.copy()
+        msg['message'] = "Bạn không đủ quyền hạn để thực hiện chức năng này"
+        if 'role' in request.data.keys():
+            if request.user.is_authenticated and request.user.role == UserRole.ADMIN:
+                return super().create(request=self.request, *args, **kwargs)
+            else:
+                return Response(msg, status=status.HTTP_403_FORBIDDEN)
+        else:
+            return super().create(request, *args, **kwargs)
 
     @action(methods=['get'], detail=False)
     def current_user(self, request, *args, **kwargs):
@@ -108,6 +133,8 @@ class AppointmentViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView, 
     queryset = Appointment.objects.filter(active=True)
     serializer_class = AppointmentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = AppointmentPagnigation
+
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -122,10 +149,12 @@ class AppointmentViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView, 
         if request.user.role == UserRole.BENH_NHAN:
             reg_date = datetime.datetime.strptime(request.data['ExpectedDate'], '%d-%m-%Y %H:%M')
             amount = Appointment.objects.filter(ExpectedDate__date=reg_date.date(), active=True).count()
-            if amount >= Limit_appointment:
-                msg = failed
-                msg[
-                    'message'] = f"Số lượng lịch đặt khám ngày {reg_date.date()} đã đầy, Xin vui lòng đặt lại lịch của bạn vào ngày khác"
+            if reg_date < datetime.datetime.now():
+                msg=failed.copy()
+                msg['message'] = f"Không thể đặt lịch khám trước thời gian hiện tại."
+            elif amount >= Limit_appointment:
+                msg = failed.copy()
+                msg['message'] = f"Số lượng lịch đặt khám ngày {reg_date.date()} đã đầy, Xin vui lòng đặt lại lịch của bạn vào ngày khác"
             else:
                 validated_data = {
                     "ExpectedDate": reg_date,
@@ -137,11 +166,40 @@ class AppointmentViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView, 
                     apm.save()
                 except Exception as exc:
                     msg = failed.copy()
-                    msg[
-                        'message'] = f"lịch đặt khám ngày {reg_date} đã trùng, Xin vui lòng đặt lại lịch của bạn vào thời điểm khác"
+                    msg['message'] = f"lịch đặt khám ngày {reg_date} đã trùng, Xin vui lòng đặt lại lịch của bạn vào thời điểm khác"
                 else:
                     msg = self.serializer_class(apm, context={"request": request}).data
         return Response(msg, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False)
+    def current_patient_sucess(self, request):
+        msg = failed.copy()
+        msg['message'] = "Chỉ có bệnh nhân mới xem đc lịch khám của mình này."
+        if request.user.role == UserRole.BENH_NHAN:
+            queryset = Appointment.objects.filter(patient_id__exact=request.user.id, created_date__lt= datetime.datetime.now(), active=True)
+            print(queryset)
+            return Response(AppointmentListSerializer(queryset,many=True, context={'request': request}).data, status=status.HTTP_200_OK)
+        return Response(msg, status=status.HTTP_403_FORBIDDEN)
+
+    @action(methods=['get'], detail=False)
+    def current_patient_canceled(self, request):
+        msg = failed.copy()
+        msg['message'] = "Chỉ có bệnh nhân mới xem đc lịch khám của mình này."
+        if request.user.role == UserRole.BENH_NHAN:
+            queryset = Appointment.objects.filter(patient_id__exact=request.user.id, active=False)
+            return Response(AppointmentListSerializer(queryset,many=True, context={'request': request}).data,
+                            status=status.HTTP_200_OK)
+        return Response(msg, status=status.HTTP_403_FORBIDDEN)
+
+    @action(methods=['get'], detail=False)
+    def current_patient_recent(self, request):
+        msg = failed.copy()
+        msg['message'] = "Chỉ có bệnh nhân mới xem đc lịch khám của mình này."
+        if request.user.role == UserRole.BENH_NHAN:
+            queryset = Appointment.objects.filter(patient_id__exact=request.user.id, created_date__gte=datetime.datetime.now(), active=True)
+            return Response(AppointmentListSerializer(queryset,many=True, context={'request': request}).data,
+                            status=status.HTTP_200_OK)
+        return Response(msg, status=status.HTTP_403_FORBIDDEN)
 
     @action(methods=['put'], detail=True, name="Cancel this appointment", url_name='cancel', url_path="cancel")
     def cancel(self, request, pk=None):
@@ -198,6 +256,11 @@ class HealthRecordViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView,
     serializer_class = HealthRecordSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.action == "list":
+            return HealthRecordListSerializer
+        else:
+            return HealthRecordSerializer
 
     def create(self, request, *args, **kwargs):
         msg = failed.copy()
@@ -224,21 +287,46 @@ class HealthRecordViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView,
         if request.user.role == UserRole.BAC_SI:
             hr = HealthRecord.objects.get(pk=pk)
             medicines = request.data['medicines']
+            if request.data['override']:
+                MedicineDetails.objects.filter(health_record=hr).delete()
             for m in medicines:
-                if MedicineDetails.objects.filter(health_record=hr, medicine_id=m['id']).first() is None:
-                    temp = MedicineDetails(health_record=hr, medicine_id=m['id'], amount=m['amount'], unit=m['unit'])
-                    temp.total = temp.amount * list(filter(lambda x: x.unit == temp.unit, temp.medicine.prices.all()))[0].unit_price
-                    temp.save()
-                    for i in m['instructions']:
-                        intr = Instruction.objects.filter(amount__exact=i['amount'], unit__exact=temp.unit,
-                                                          period__exact=i['period']).first()
-                        if intr is None:
-                            intr = Instruction(**i)
-                            intr.unit = temp.unit
-                            intr.save()
-                        print(intr.id)
+                print(Unit[m['unit']])
+                md = MedicineDetails.objects.filter(health_record=hr, medicine_id=m['id']).first()
+                if md is None:
+                    temp = MedicineDetails(health_record=hr, medicine_id=m['id'], amount=m['amount'], unit=Unit[m['unit']])
+                else:
+                    temp = md
+                    temp.amount = m['amount']
+                    temp.unit = Unit[m['unit']]
+
+                price= temp.medicine.prices.filter(unit=temp.unit)
+                price_len= temp.medicine.prices.filter(unit=temp.unit).count()
+                print(f"{price} - Xuất ra xem ntn - {price_len}")
+                if price_len == 0:
+                    msg['message'] = f"Hiện {temp.medicine.name} không phân phối theo {temp.unit}"
+                    return Response(msg, status=status.HTTP_200_OK)
+
+                temp.total = temp.amount * price[0].unit_price
+
+
+                temp.save()
+                for i in m['instructions']:
+                    intr = Instruction.objects.filter(amount__exact=i['amount'], unit=Unit[i['unit']],period__exact=Period[i['period']]).first()
+                    if intr is None:
+                        intr = Instruction(period=Period[i['period']], amount=i['amount'], unit=Unit[i['unit']])
+                        intr.save()
+                    add = True
+                    for i in temp.instructions.all():
+                        if intr == i:
+                            add=False
+                            break
+                        elif intr.period == i.period:
+                            temp.instructions.remove(i)
+                            break
+
+                    if add:
                         temp.instructions.add(intr)
-                    temp.save()
+                temp.save()
             msg = self.serializer_class(hr, context={"request": request}).data
         return Response(msg, status=status.HTTP_200_OK)
 
@@ -316,6 +404,30 @@ class HealthRecordViewSet(ViewSet, generics.ListAPIView, generics.CreateAPIView,
 
                 msg = ReceiptSerializer(receipt, context={"request": request}).data
         return Response(msg, status=status.HTTP_200_OK)
+    @action(methods=['get'], detail=True)
+    def receipt(self, request, pk=None):
+        msg = failed.copy()
+        msg['message'] = "Bạn không đủ quyền để xem hóa đơn toa thuốc này."
+
+        if request.user.role in [UserRole.Y_TA, UserRole.BENH_NHAN]:
+            hr = HealthRecord.objects.get(pk=pk)
+            if hr.receipt:
+                receipt = hr.receipt
+                msg = ReceiptSerializer(receipt, context={"request": request}).data
+            else:
+                msg = failed.copy()
+                msg['message']='không tìm thấy hóa đơ, vui lòng tạo hóa đơn trước khi xem'
+        return Response(msg, status=status.HTTP_200_OK)
+
+    @action(methods=['get'], detail=False)
+    def my_health_record(self, request):
+        msg = failed.copy()
+        msg['message'] = "Chỉ có bệnh nhân mới có thể xem toa thuốc của mình."
+
+        if request.user.role == UserRole.BENH_NHAN:
+            hr = HealthRecord.objects.filter(patient_id=request.user.id)
+            msg = HealthRecordListSerializer(hr, context={"request": request}).data
+        return Response(msg, status=status.HTTP_200_OK)
 
 
 class PatientViewSet(ViewSet, generics.ListAPIView, generics.RetrieveAPIView):
@@ -336,7 +448,7 @@ class InstructionViewSet(ViewSet, generics.ListAPIView):
 class DepartmentViewSet(ViewSet, generics.ListAPIView):
     queryset = Department.objects.filter(active=True)
     serializer_class = DepartmentSerializer
-    pagination_class = MedicinePagnigation
+    # pagination_class = MedicinePagnigation
 
     @action(methods=['get'], detail=True)
     def doctors(self, request, pk=None):
@@ -358,3 +470,8 @@ class RecieptViewSet(ViewSet, generics.ListAPIView):
     @action(methods=['get'], detail=False)
     def my_receipt(self, request, *args, **kwargs):
         return self.list(self, request, *args, **kwargs)
+
+class ServiceViewSet(ViewSet, generics.ListAPIView):
+    queryset = Service.objects.filter(active=True)
+    serializer_class = ServiceSerializer
+    pagination_class = AppointmentPagnigation

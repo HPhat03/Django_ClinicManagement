@@ -68,33 +68,38 @@ class Patient(models.Model):
 class Employee(models.Model):
     user_info = models.OneToOneField(User, related_name="employee",
                                      on_delete=models.CASCADE,
-                                     null=False, primary_key=True)
+                                     null=False, primary_key=True, editable=False)
     diploma = RichTextField()
     def __str__(self):
         role = self.user_info.role
         S = ''
+        O = ''
+
         match role:
             case UserRole.BAC_SI:
                 S = 'Bác sĩ'
+                O = f' - {self.doctor_info.departments}'
             case UserRole.Y_TA:
                 S = 'Y tá'
-        return S + ' ' + self.user_info.name
+                O = ""
+
+        text = S + ' ' + self.user_info.name
+        tab = (30 - len(text)) * "_" if role == UserRole.BAC_SI else ""
+        return  f'{text}{tab}{O}'
 
 
 class Doctor(models.Model):
     employee_info = models.OneToOneField(Employee, related_name="doctor_info",
                                          on_delete=models.CASCADE,
-                                         null=False, primary_key=True)
+                                         null=False, primary_key=True, editable=False)
     departments = models.ForeignKey('Department', related_name="doctors",null=True, on_delete=models.SET_NULL)
 
     def __str__(self):
         return self.employee_info.user_info.name
-
-
 class Nurse(models.Model):
     employee_info = models.OneToOneField(Employee, related_name="nurse_info",
                                          on_delete=models.CASCADE,
-                                         null=False, primary_key=True)
+                                         null=False, primary_key=True, editable=False)
 
     def __str__(self):
         return self.employee_info.user_info.name
@@ -108,7 +113,8 @@ class Schedule(BaseModel):
     department = models.ForeignKey('Department', on_delete=models.CASCADE, related_name='schedules')
     employees = models.ManyToManyField(Employee, related_name='schedules')
 
-
+    def __str__(self):
+        return f"{self.department} - {self.ScheduleDate}"
 class Department(BaseModel):
     name = models.CharField(max_length=50, null=False)
 
